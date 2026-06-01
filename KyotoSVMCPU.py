@@ -52,9 +52,9 @@ fim = time.time()
 print(f"tempo de treino: {fim - inicio} segundos\n")
 
 # Cálculos finais, assim como no R. Previsão, acurácia e matriz de confusão
-previsao = modeloSVM.predict(X_treino_scaled)
-acuracia = accuracy_score(y_treino, previsao)
-matriz = confusion_matrix(y_treino, previsao)
+previsao = modeloSVM.predict(X_teste_scaled)
+acuracia = accuracy_score(y_teste, previsao)
+matriz = confusion_matrix(y_teste, previsao)
 
 print("Matriz de confusão")
 df1 = pd.DataFrame(
@@ -64,4 +64,4 @@ df1 = pd.DataFrame(
 )
 
 print(df1)
-print(f"\n Acurãcia: {acuracia}")
+print(f"\n Acurácia: {acuracia}")
