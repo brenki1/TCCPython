@@ -30,15 +30,15 @@ X = pd.get_dummies(X, columns=['Servico', 'Flag', 'Protocolo'], drop_first=True)
 X = X.astype(np.float64)
 y = y.astype(np.float32)
 
-n_simulacoes = 100
+n = 100
 seed = 895769
 
-tempos_execucao = []
+tExec = []
 acuracias = []
-medias_tempo = []
-medias_acuracia = []
+mediasT = []
+mediasAc = []
 
-for i in range(n_simulacoes):
+for i in range(n):
     X_treino, X_teste, y_treino, y_teste = train_test_split(X, y, test_size=0.2, random_state=seed + i)
 
     scaler = StandardScaler()
@@ -51,21 +51,21 @@ for i in range(n_simulacoes):
     fim = time.time()
 
     tempo_iteracao = fim - inicio
-    tempos_execucao.append(tempo_iteracao)
+    tExec.append(tempo_iteracao)
 
     previsao = modeloSVM.predict(X_teste_scaled)
     acuracia = accuracy_score(y_teste, previsao)
     acuracias.append(acuracia)
 
-    medias_tempo.append(np.mean(tempos_execucao))
-    medias_acuracia.append(np.mean(acuracias))
+    mediasT.append(np.mean(tExec))
+    mediasAc.append(np.mean(acuracias))
 
 resultados = pd.DataFrame({
-    'Simulacao': range(1, n_simulacoes + 1),
-    'Tempo_Execucao_Segundos': tempos_execucao,
-    'Media_Tempo_Cumulativa': medias_tempo,
+    'ite': range(1, n + 1),
+    'tExecS': tExec,
+    'MediaTCumulativa': mediasT,
     'Acuracia': acuracias,
-    'Media_Acuracia_Cumulativa': medias_acuracia
+    'MediaAcCumulativa': mediasAc
 })
 
 resultados.to_csv('resultados_monte_carlo_polinomial.csv', index=False)
