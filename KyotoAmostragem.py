@@ -27,7 +27,6 @@ for arq in arquivos:
 
 
 kyoto = pd.concat(leitura, ignore_index=True)
-print(f"Leitura concluída! Total de amostras combinadas: {len(kyoto)}")
 
 kyoto = kyoto[kyoto['Rotulo'] != -2]
 
@@ -62,7 +61,7 @@ dados_teste = lgb.Dataset(X_teste_scaled, label=y_teste, reference=dados_treino)
 params = {
     'objective': 'binary',
     'metric': 'binary_error',
-    'learning_rate': 0.05,
+    'learning_rate': 0.1,
     'num_leaves': 50,
     'max_depth': -1,
     'device_type': 'gpu',
@@ -86,7 +85,10 @@ print(f"tempo de treino: {fim - inicio} segundos\n")
 acuracia = accuracy_score(y_teste, y_pred)
 matriz_confusao = confusion_matrix(y_teste, y_pred)
 
-print("\n--- Resultados do Modelo ---")
+df1 = pd.DataFrame(matriz_confusao,
+                   index=["Normal (0)", "Ataque (1)"],
+                   columns=["Previsao Normal", "Previsao Ataque"])
+
 print(f"Acurácia: {acuracia * 100:.2f}%")
 print("Matriz de Confusão:")
-print(matriz_confusao)
+print(df1)
