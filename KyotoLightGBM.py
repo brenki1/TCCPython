@@ -1,5 +1,6 @@
 import lightgbm as lgb
 import numpy as np
+import optuna
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -56,6 +57,74 @@ params = {
 inicio = time.time()
 modelo = lgb.train(
     params,
+    dados_treino,
+    num_boost_round=500,
+    valid_sets=[dados_treino,dados_teste],
+    callbacks=[lgb.early_stopping(stopping_rounds=50)]
+)
+fim = time.time()
+
+probabilidades = modelo.predict(X_teste_scaled, num_iteration=modelo.best_iteration)
+y_pred = np.where(probabilidades > 0.5, 1, 0)
+
+print(f"tempo de treino: {fim - inicio} segundos\n")
+acuracia = accuracy_score(y_teste, y_pred)
+matriz_confusao = confusion_matrix(y_teste, y_pred)
+
+df1 = pd.DataFrame(matriz_confusao,
+                   index=["Normal (0)", "Ataque (1)"],
+                   columns=["Previsao Normal", "Previsao Ataque"])
+
+print(f"Acurácia: {acuracia * 100:.2f}%")
+print("Matriz de Confusão:")
+print(df1)
+
+def objective(trial):
+    paramOptuna = {
+        'learning_rate': trial.suggest_float("learning_rate", 0.01, 1, log=True),
+        'num_leaves': trial.suggest_int("num_leaves", 50, 100),
+    }
+
+    paramsTrial = {
+        'objective': 'binary',
+        'metric': 'binary_error',
+        'max_depth': -1,
+        'device_type': 'gpu',
+        'gpu_use_dp': False
+    }
+
+    paramsTrial.update(paramOptuna)
+
+    modeloTrial = lgb.train(
+        paramsTrial,
+        dados_treino,
+        num_boost_round=500,
+        valid_sets=[dados_treino,dados_teste],
+        callbacks=[lgb.early_stopping(stopping_rounds=50)]
+    )
+
+    probabilidadesTrial = modeloTrial.predict(X_teste_scaled, num_iteration=modeloTrial.best_iteration)
+    yPredTrial = np.where(probabilidadesTrial > 0.5, 1, 0)
+
+    acuraciaTrial = accuracy_score(y_teste, yPredTrial)
+
+    return acuraciaTrial
+
+estudo = optuna.create_study(direction='maximize')
+estudo.optimize(objective, n_trials=10)
+
+paramDefinitivo = {
+    'objective': 'binary',
+    'metric': 'binary_error',
+    'max_depth': -1,
+    'device_type': 'gpu',
+    'gpu_use_dp': False
+}
+paramDefinitivo.update(estudo.best_params)
+
+inicio = time.time()
+modelo = lgb.train(
+    paramDefinitivo,
     dados_treino,
     num_boost_round=500,
     valid_sets=[dados_treino,dados_teste],
