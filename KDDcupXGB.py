@@ -56,12 +56,9 @@ dteste = xgb.DMatrix(X_teste_scaled, label=y_teste)
 params = {
     'objective': 'binary:logistic',
     'eval_metric': 'error',
-    'learning_rate': 0.1,
+    'learning_rate': 0.5,
     'max_depth': 8,
-    'subsample': 0.8,
-    'colsample_bytree': 0.8,
     'tree_method': 'hist',
-    'max_bin': 256,
     'nthread': 16
 }
 
@@ -69,10 +66,10 @@ inicio = time.time()
 modelo = xgb.train(
     params,
     dtreino,
-    num_boost_round=150,
+    num_boost_round=50,
     evals=[(dtreino, 'treino'), (dteste, 'teste')],
     early_stopping_rounds=50,
-    verbose_eval=True
+    verbose_eval=False
 )
 fim = time.time()
 

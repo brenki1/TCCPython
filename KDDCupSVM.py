@@ -3,7 +3,7 @@ patch_sklearn()
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, confusion_matrix
 import time
 
@@ -53,7 +53,7 @@ X_treino_scaled = scaler.fit_transform(X_treino)
 X_teste_scaled = scaler.transform(X_teste)
 
 inicio = time.time()
-modelo = LinearSVC(dual=False, random_state=895769, max_iter=1000)
+modelo = SVC(kernel='rbf', random_state=895769)
 modelo.fit(X_treino_scaled, y_treino)
 fim = time.time()
 
