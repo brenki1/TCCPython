@@ -92,14 +92,14 @@ for i in range(n):
     vetor_acuracia[i] = accuracy_score(y_teste, y_pred) * 100
 
 media_cumulativa_acuracia = np.cumsum(vetor_acuracia) / np.arange(1, n + 1)
-tempo_cumulativo_execucao = np.cumsum(vetor_tempo)
+media_cumulativa_tempo = np.cumsum(vetor_tempo) / np.arange(1, n + 1)
 
 df_export = pd.DataFrame({
-    'iteracao': np.arange(1, n + 1),
-    'acuracia_iteracao': vetor_acuracia,
-    'tempo_iteracao_seg': vetor_tempo,
-    'media_cumulativa_acuracia': media_cumulativa_acuracia,
-    'tempo_cumulativo_seg': tempo_cumulativo_execucao
+    'ite': np.arange(1, n + 1),
+    'Acuracia': vetor_acuracia,
+    'tExecS': vetor_tempo,
+    'MediaAcCumulativa': media_cumulativa_acuracia,
+    'MediaTCumulativa': media_cumulativa_tempo
 })
 
 df_export.to_csv("monteCarloNSLKDDxg.csv", index=False)
