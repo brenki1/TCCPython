@@ -74,7 +74,7 @@ inicio = time.time()
 modelo = lgb.train(
     params,
     dados_treino,
-    num_boost_round=500,
+    num_boost_round=20,
     valid_sets=[dados_treino, dados_teste],
     callbacks=[lgb.early_stopping(stopping_rounds=50)]
 )

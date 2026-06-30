@@ -1,8 +1,8 @@
-import xgboost as xgb
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score
 import time
 
 variaveis = ["duration", "protocol_type", "service", "flag", "src_bytes", "dst_bytes", "land",
@@ -34,16 +34,14 @@ filtro = ["label", "duration", "protocol_type", "service", "flag", "src_bytes", 
           "dst_host_srv_serror_rate", "dst_host_rerror_rate", "dst_host_srv_rerror_rate", "is_train"]
 
 nslFiltrada = nsl[filtro].dropna().copy()
-
 nslFiltrada['label'] = nslFiltrada['label'].apply(lambda x: 0 if x == 'normal' else 1)
 
 y = nslFiltrada['label']
 X = nslFiltrada.drop(['label', 'is_train'], axis=1)
-
 X = pd.get_dummies(X, columns=['protocol_type', 'service', 'flag'], drop_first=True)
 
 X = X.astype(np.float32)
-y = y.astype(np.int32)
+y = y.astype(np.float32)
 
 X_treino = X[nslFiltrada['is_train'] == 1]
 X_teste = X[nslFiltrada['is_train'] == 0]
@@ -54,40 +52,55 @@ scaler = StandardScaler()
 X_treino_scaled = scaler.fit_transform(X_treino)
 X_teste_scaled = scaler.transform(X_teste)
 
-dados_treino = xgb.DMatrix(X_treino_scaled, label=y_treino)
-dados_teste = xgb.DMatrix(X_teste_scaled, label=y_teste)
+dados_treino = lgb.Dataset(X_treino_scaled, label=y_treino)
+dados_teste = lgb.Dataset(X_teste_scaled, label=y_teste, reference=dados_treino)
 
-params = {
-    'objective': 'binary:logistic',
-    'eval_metric': 'error',
+base_params = {
+    'objective': 'binary',
+    'metric': 'binary_error',
     'learning_rate': 0.5,
-    'max_depth': 8,
-    'tree_method': 'hist',
-    'nthread': 16
+    'num_leaves': 50,
+    'max_depth': -1,
+    'device_type': 'gpu',
+    'gpu_use_dp': False,
+    'verbose': -1
 }
 
-inicio = time.time()
-modelo = xgb.train(
-    params,
-    dados_treino,
-    num_boost_round=10,
-    evals=[(dados_treino, 'treino'), (dados_teste, 'teste')],
-    early_stopping_rounds=50,
-    verbose_eval=False
-)
-fim = time.time()
+n = 10000
 
-probabilidades = modelo.predict(dados_teste, iteration_range=(0, modelo.best_iteration + 1))
-y_pred = np.where(probabilidades > 0.5, 1, 0)
+vetor_acuracia = np.empty(n)
+vetor_tempo = np.empty(n)
 
-print(f"tempo de treino: {fim - inicio} segundos\n")
-acuracia = accuracy_score(y_teste, y_pred)
-matriz_confusao = confusion_matrix(y_teste, y_pred)
+for i in range(n):
+    params = base_params.copy()
+    params['seed'] = np.random.randint(0, 2147483647)
 
-df1 = pd.DataFrame(matriz_confusao,
-                   index=["Normal (0)", "Ataque (1)"],
-                   columns=["Previsao Normal", "Previsao Ataque"])
+    inicio = time.time()
+    modelo = lgb.train(
+        params,
+        dados_treino,
+        num_boost_round=20,
+        valid_sets=[dados_treino, dados_teste],
+        callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False)]
+    )
+    fim = time.time()
 
-print(f"Acurácia: {acuracia * 100:.2f}%")
-print("Matriz de Confusão:")
-print(df1)
+    vetor_tempo[i] = fim - inicio
+
+    probabilidades = modelo.predict(X_teste_scaled, num_iteration=modelo.best_iteration)
+    y_pred = np.where(probabilidades > 0.5, 1, 0)
+
+    vetor_acuracia[i] = accuracy_score(y_teste, y_pred) * 100
+
+media_cumulativa_acuracia = np.cumsum(vetor_acuracia) / np.arange(1, n + 1)
+tempo_cumulativo_execucao = np.cumsum(vetor_tempo)
+
+df_export = pd.DataFrame({
+    'iteracao': np.arange(1, n + 1),
+    'acuracia_iteracao': vetor_acuracia,
+    'tempo_iteracao_seg': vetor_tempo,
+    'media_cumulativa_acuracia': media_cumulativa_acuracia,
+    'tempo_cumulativo_seg': tempo_cumulativo_execucao
+})
+
+df_export.to_csv("monteCarloNSLKDDgbm.csv", index=False)

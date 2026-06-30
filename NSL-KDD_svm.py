@@ -1,3 +1,6 @@
+from sklearnex import patch_sklearn
+patch_sklearn()
+
 import numpy as np
 import pandas as pd
 from sklearn.svm import SVC
@@ -62,7 +65,7 @@ fim = time.time()
 
 y_pred = modelo.predict(X_teste_scaled)
 
-print(f"tempo de treino: {fim - inicio:.4f} segundos\n")
+print(f"tempo de treino: {fim - inicio} segundos\n")
 acuracia = accuracy_score(y_teste, y_pred)
 matriz_confusao = confusion_matrix(y_teste, y_pred)
 
