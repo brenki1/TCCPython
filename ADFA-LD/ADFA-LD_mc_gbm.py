@@ -1,0 +1,107 @@
+import lightgbm as lgb
+import numpy as np
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import os
+import time
+
+adfa_ld_path = ''
+
+corpus = []
+rotulos = []
+
+for pasta in ['Training_Data_Master', 'Validation_Data_Master']:
+    caminho_pasta = os.path.join(adfa_ld_path, pasta)
+    for arquivo in sorted(os.listdir(caminho_pasta)):
+        caminho_arquivo = os.path.join(caminho_pasta, arquivo)
+        if os.path.isfile(caminho_arquivo):
+            with open(caminho_arquivo, 'r') as f:
+                syscalls = ' '.join(f.read().split())
+                if syscalls:
+                    corpus.append(syscalls)
+                    rotulos.append(0)
+
+pasta_ataques = os.path.join(adfa_ld_path, 'Attack_Data_Master')
+for tipo_ataque in sorted(os.listdir(pasta_ataques)):
+    pasta_tipo = os.path.join(pasta_ataques, tipo_ataque)
+    if os.path.isdir(pasta_tipo):
+        for arquivo in sorted(os.listdir(pasta_tipo)):
+            caminho_arquivo = os.path.join(pasta_tipo, arquivo)
+            if os.path.isfile(caminho_arquivo):
+                with open(caminho_arquivo, 'r') as f:
+                    syscalls = ' '.join(f.read().split())
+                    if syscalls:
+                        corpus.append(syscalls)
+                        rotulos.append(1)
+
+vectorizer = TfidfVectorizer(ngram_range=(2, 4), max_features=5000, analyzer='word', sublinear_tf=True)
+X = vectorizer.fit_transform(corpus).toarray().astype(np.float32)
+y = np.array(rotulos, dtype=np.float32)
+
+n = 450
+resultados = []
+soma_acuracia = 0
+soma_tempo = 0
+
+for i in range(1, n + 1):
+    seed = np.random.randint(0, 1000000)
+
+    X_treino, X_teste, y_treino, y_teste = train_test_split(
+        X, y, test_size=0.3, random_state=seed, stratify=y
+    )
+
+    scaler = StandardScaler()
+    X_treino_scaled = scaler.fit_transform(X_treino)
+    X_teste_scaled = scaler.transform(X_teste)
+
+    dados_treino = lgb.Dataset(X_treino_scaled, label=y_treino)
+    dados_teste = lgb.Dataset(X_teste_scaled, label=y_teste, reference=dados_treino)
+
+    params = {
+        'objective': 'binary',
+        'metric': 'binary_error',
+        'learning_rate': 0.5,
+        'num_leaves': 63,
+        'max_depth': -1,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'is_unbalance': True,
+        'device_type': 'gpu',
+        'gpu_use_dp': False,
+        'seed': seed,
+    }
+
+    inicio = time.time()
+    modelo = lgb.train(
+        params,
+        dados_treino,
+        num_boost_round=500,
+        valid_sets=[dados_treino, dados_teste],
+        callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False)]
+    )
+    fim = time.time()
+
+    tempo_exec = fim - inicio
+    soma_tempo += tempo_exec
+    media_tempo_cumulativa = soma_tempo / i
+
+    probabilidades = modelo.predict(X_teste_scaled, num_iteration=modelo.best_iteration)
+    y_pred = np.where(probabilidades > 0.5, 1, 0)
+
+    acuracia = accuracy_score(y_teste, y_pred)
+    soma_acuracia += acuracia
+    media_acuracia_cumulativa = soma_acuracia / i
+
+    resultados.append({
+        'ite': i,
+        'Acuracia': acuracia,
+        'tExecS': tempo_exec,
+        'MediaAcCumulativa': media_acuracia_cumulativa,
+        'MediaTCumulativa': media_tempo_cumulativa
+    })
+
+df_resultados = pd.DataFrame(resultados)
+df_resultados.to_csv("monteCarloADFA_lgbm.csv", index=False)
