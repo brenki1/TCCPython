@@ -10,8 +10,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
-    accuracy_score, confusion_matrix,
-    f1_score, precision_score, recall_score, roc_auc_score
+    accuracy_score, confusion_matrix
 )
 import os
 import time
